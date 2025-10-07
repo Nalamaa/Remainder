@@ -1,0 +1,87 @@
+/* index.css (full-page background + centered card) */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Make html/body/root fill the viewport so background can cover full page */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+/* Full-screen background image on the BODY (use an absolute/ public path) */
+body {
+  font-family: "Poppins", sans-serif;
+  color: #222;
+  /* Put your image URL here. If the file is in public/, use "/path.jpg" */
+  background-image: url("https://topflightapps.com/wp-content/uploads/2022/02/develop-medicine-reminder-app-main-banner.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;      /* make it cover entire viewport */
+  background-attachment: fixed; /* keeps image fixed while scrolling */
+  min-height: 100vh;
+  width: 100vw;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App wrapper centered in viewport */
+.app-wrapper {
+  min-height: 100vh;            /* ensure wrapper also fills viewport */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;                /* spacing on small screens */
+}
+
+/* The centered card */
+.app {
+  width: 100%;
+  max-width: 620px;
+  background: rgba(255,255,255,0.90); /* translucent white card */
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+}
+
+/* Heading */
+.app h1 {
+  font-size: 34px;
+  margin-bottom: 14px;
+  color: #123; /* dark title color */
+}
+
+/* Form layout */
+.form-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+input[type="text"], input[type="time"] {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  flex: 1;
+}
+button.add {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  background: #007bff;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* List */
+.reminders { list-style: none; padding: 0; margin-top: 8px; }
+.reminders li {
+  display:flex; justify-content:space-between; align-items:center;
+  background:#f7f9fb; color:#111; padding:10px; border-radius:8px; margin-bottom:10px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .app { padding: 18px; max-width: 92%; }
+  .app h1 { font-size: 22px; }
+  .form-row { flex-direction: column; }
+  button.add { width: 100%; }
+}
