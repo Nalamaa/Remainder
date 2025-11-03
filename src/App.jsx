@@ -11,13 +11,32 @@ export default function App() {
   const [days, setDays] = useState([]);
   const [ringing, setRinging] = useState(false);
   const [currentMed, setCurrentMed] = useState(null);
+  const [speaking, setSpeaking] = useState(false); // ✅ Track speaking status
 
-  // ✅ Save medications
+  // ✅ Speak function
+  const speak = (text) => {
+    stopSpeaking(); // stop any previous speech
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1;
+    window.speechSynthesis.speak(utter);
+    setSpeaking(true);
+
+    utter.onend = () => setSpeaking(false);
+  };
+
+  // ✅ Stop speaking function
+  const stopSpeaking = () => {
+    window.speechSynthesis.cancel();
+    setSpeaking(false);
+  };
+
+  // ✅ Save to localStorage
   useEffect(() => {
     localStorage.setItem("medications", JSON.stringify(medications));
   }, [medications]);
 
-  // ✅ Load medications
+  // ✅ Load from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("medications");
     if (saved) setMedications(JSON.parse(saved));
@@ -30,11 +49,22 @@ export default function App() {
     );
   };
 
-  // ✅ Speak function for blind users
-  const speak = (text) => {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "en-US";
-    window.speechSynthesis.speak(utter);
+  // ✅ Add new medicine
+  const addMedication = (e) => {
+    e.preventDefault();
+    if (!name || !time || days.length === 0) return;
+    setMedications([
+      ...medications,
+      { id: Date.now(), name, time, days, triggered: false },
+    ]);
+    setName("");
+    setTime("");
+    setDays([]);
+  };
+
+  // ✅ Delete medicine
+  const deleteMedication = (id) => {
+    setMedications(medications.filter((m) => m.id !== id));
   };
 
   // ✅ Reminder checker
@@ -54,20 +84,14 @@ export default function App() {
           med.days.includes(currentDay) &&
           !med.triggered
         ) {
-          // Play alarm sound
           alarm.play().catch((err) => console.log("Autoplay blocked:", err));
           setRinging(true);
           setCurrentMed(med);
 
-          // ✅ Speak medicine name for blind users
           speak(`Time to take your medicine: ${med.name}`);
 
-          // ✅ Vibrate on mobile devices
-          if (navigator.vibrate) {
-            navigator.vibrate([500, 200, 500]);
-          }
+          if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
 
-          // Mark triggered
           setMedications((prev) =>
             prev.map((m) =>
               m.id === med.id ? { ...m, triggered: true } : m
@@ -75,29 +99,10 @@ export default function App() {
           );
         }
       });
-    }, 1000); // check every second
+    }, 1000);
 
     return () => clearInterval(checkReminders);
   }, [medications]);
-
-  // ✅ Add medicine
-  const addMedication = (e) => {
-    e.preventDefault();
-    if (!name || !time || days.length === 0) return;
-
-    setMedications([
-      ...medications,
-      { id: Date.now(), name, time, days, triggered: false },
-    ]);
-    setName("");
-    setTime("");
-    setDays([]);
-  };
-
-  // ✅ Delete medicine
-  const deleteMedication = (id) => {
-    setMedications(medications.filter((m) => m.id !== id));
-  };
 
   // ✅ Stop alarm
   const stopAlarm = () => {
@@ -105,13 +110,44 @@ export default function App() {
     alarm.currentTime = 0;
     setRinging(false);
     setCurrentMed(null);
-
-    // ✅ Announce alarm stopped
     speak("Alarm stopped");
-    if (navigator.vibrate) {
-      navigator.vibrate(200);
-    }
+    if (navigator.vibrate) navigator.vibrate(200);
   };
+
+  // ✅ Voice summary (Feature #10)
+  const speakDailySummary = () => {
+    const today = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+      new Date().getDay()
+    ];
+    const todayMeds = medications.filter((m) => m.days.includes(today));
+
+    if (todayMeds.length === 0) {
+      speak("Good morning! You have no medicines scheduled for today.");
+      return;
+    }
+
+    let message = `Good morning! You have ${todayMeds.length} medicines today. `;
+    todayMeds.forEach((m) => {
+      const [hour, minute] = m.time.split(":");
+      const hr = parseInt(hour);
+      const period = hr >= 12 ? "PM" : "AM";
+      const formattedTime = `${hr % 12 || 12}:${minute} ${period}`;
+      message += `${m.name} at ${formattedTime}. `;
+    });
+
+    speak(message);
+  };
+
+  // ✅ Optional automatic summary at 8:00 AM
+  useEffect(() => {
+    const autoSpeak = setInterval(() => {
+      const now = new Date();
+      if (now.getHours() === 8 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+        speakDailySummary();
+      }
+    }, 1000);
+    return () => clearInterval(autoSpeak);
+  }, [medications]);
 
   return (
     <div
@@ -141,6 +177,47 @@ export default function App() {
           💊 Medication Reminder
         </h1>
 
+        {/* ✅ Voice Summary Controls */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "10px",
+            marginBottom: "20px",
+          }}
+        >
+          <button
+            onClick={speakDailySummary}
+            style={{
+              background: "#28a745",
+              color: "white",
+              padding: "10px",
+              border: "none",
+              borderRadius: "8px",
+              cursor: "pointer",
+              flex: 1,
+            }}
+          >
+            🔊 Speak Today’s Summary
+          </button>
+
+          <button
+            onClick={stopSpeaking}
+            disabled={!speaking}
+            style={{
+              background: speaking ? "red" : "#ccc",
+              color: "white",
+              padding: "10px",
+              border: "none",
+              borderRadius: "8px",
+              cursor: speaking ? "pointer" : "not-allowed",
+              flex: 1,
+            }}
+          >
+            🛑 Stop Voice Summary
+          </button>
+        </div>
+
         {/* Add Form */}
         <form
           onSubmit={addMedication}
@@ -154,7 +231,6 @@ export default function App() {
           <input
             type="text"
             placeholder="Medicine Name"
-            aria-label="Enter medicine name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{
@@ -165,7 +241,6 @@ export default function App() {
           />
           <input
             type="time"
-            aria-label="Select time for medicine"
             value={time}
             onChange={(e) => setTime(e.target.value)}
             style={{
@@ -174,19 +249,13 @@ export default function App() {
               border: "1px solid #ccc",
             }}
           />
-
-          {/* Weekday checkboxes */}
-          <div
-            style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}
-            aria-label="Select days of the week"
-          >
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <label key={d} style={{ fontSize: "14px" }}>
+              <label key={d}>
                 <input
                   type="checkbox"
                   checked={days.includes(d)}
                   onChange={() => toggleDay(d)}
-                  aria-label={`Select ${d}`}
                 />
                 {d}
               </label>
@@ -195,7 +264,6 @@ export default function App() {
 
           <button
             type="submit"
-            aria-label="Add medicine reminder"
             style={{
               padding: "10px 15px",
               borderRadius: "8px",
@@ -209,7 +277,7 @@ export default function App() {
           </button>
         </form>
 
-        {/* List */}
+        {/* List of Medications */}
         {medications.length === 0 ? (
           <p style={{ textAlign: "center", color: "#666" }}>
             No medications added yet.
@@ -228,7 +296,6 @@ export default function App() {
                   background: "#f8f9fa",
                   borderRadius: "8px",
                 }}
-                aria-label={`Reminder: ${med.name} at ${med.time} on ${med.days.join(", ")}`}
               >
                 <span>
                   <strong>{med.name}</strong> at {med.time} <br />
@@ -236,7 +303,6 @@ export default function App() {
                 </span>
                 <button
                   onClick={() => deleteMedication(med.id)}
-                  aria-label={`Delete reminder for ${med.name}`}
                   style={{
                     border: "none",
                     background: "red",
@@ -254,7 +320,7 @@ export default function App() {
         )}
       </div>
 
-      {/* ✅ Modal Popup */}
+      {/* Alarm Popup */}
       {ringing && currentMed && (
         <div
           style={{
@@ -276,11 +342,8 @@ export default function App() {
               padding: "30px",
               borderRadius: "12px",
               textAlign: "center",
-              boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
               maxWidth: "400px",
             }}
-            role="alert"
-            aria-live="assertive"
           >
             <h2>⏰ Reminder</h2>
             <p style={{ fontSize: "18px", fontWeight: "bold" }}>
@@ -292,7 +355,6 @@ export default function App() {
             </p>
             <button
               onClick={stopAlarm}
-              aria-label="Stop alarm"
               style={{
                 marginTop: "15px",
                 background: "red",
